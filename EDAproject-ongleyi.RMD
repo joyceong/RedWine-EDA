@@ -1,0 +1,810 @@
+ongleyi
+
+There is an error in my Rstudio when typing Chinese, so I will write my report in English.
+
+*Update 20180613*
+
+- Modified the plot to insure the readability , including axis range, axis breaks, axis lable and the figure size.
+
+- Modified the typesetting of Rmd.
+
+- Added the content of Reflection.
+
+- Modified the code to make sure every row is less than 80 charactors.
+
+
+*Update: The typing error is still exist after I set the Preference.*
+When I use my Chinese input method and type the word, it will display the alpha with "'" after first space key entered, and then display the Chinese after any key entered the second time.
+
+like:
+
+ni'hao你好 (I just type nihao for 1 time)
+
+========================================================
+```{r global_options, include=FALSE}
+# echo = False: to hide R source code in the output file.
+# message = False: to hide message emitted by ```message()``` in the output file.
+# warning = False: to hide warnings(produced by ```warning()```) in the output file.
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# 加载你最终使用的所有组件
+# 在这个代码块的分析中。
+
+# 注意，在这个代码块中，将参数 "echo" 设为假。
+# This prevents the code from displaying in the knitted HTML output.这可以避免代码混入 HTML 输出显示。
+# 应当在文件中，对所有代码块设为 echo=FALSE 。
+
+library(ggplot2)
+library(ggplot2)
+library(GGally)
+library(scales)
+library(memisc)
+library(gridExtra)
+```
+
+
+```{r echo=FALSE, Load_the_Data}
+# 加载数据
+redwine <- read.csv('wineQualityReds.csv')
+redwine <- subset(redwine, select = -c(X))
+
+# --- transform the measurement from mg/dm^3 and g/cm^3 to g/dm^3 --- #
+redwine$free.sulfur.dioxide <- redwine$free.sulfur.dioxide / 1000
+redwine$total.sulfur.dioxide <- redwine$total.sulfur.dioxide / 1000
+redwine$density <- redwine$density * 1000
+```
+
+
+# 单变量绘图选择
+I plot the distribution of every single variable and facet by quality.
+
+### The distribution of the quality
+We can see the in the data set, high quality and the low quality wine is much less. The data tends to be normally distributed.
+```{r echo=FALSE, Univariate_Plots}
+qplot(x = quality, data = redwine) +
+  ggtitle('distribution of redwine quality')
+```
+
+### Fixed Acidity
+The fixed acidity is most acids involved with wine or fixed or nonvolatile (do not evaporate readily), which is the skeleton of wine.
+The fixed acidity is concentrated in [6,10], and has a peak around 7. It can be considered as a normal distribution and the facet didn't see much differences.
+
+```{r fixed.acidity}
+p1 <- qplot(x = fixed.acidity, data = redwine, binwidth = 0.5) + 
+  ggtitle('distribution of fixed.acidity') +
+  xlab('fixed.acidity (g/dm^3)')
+
+p2 <- qplot(x = fixed.acidity, data = redwine, binwidth = 0.5) +
+  facet_wrap(~ quality) +
+  ggtitle('fixed.acidity faceted by quality') +
+  xlab('fixed.acidity (g/dm^3)')
+
+grid.arrange(p1, p2, nrow = 1) 
+```
+
+### Volatile Acidity
+Volatile acidity is the amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste.
+The volatile acidity is concentrated in [0.1,1.0], and has a peak around 0.5. It shows high quality wine has a lower peak. When the quality equals to 5 and 6, the count peak is larger than 0.4, but when the quality equals to 7, the peak is less than 0.4.
+This might be an evident single facotr related to the wine quality, we need to explore more.
+
+```{r volatile.acidity}
+p1 <- qplot(x = volatile.acidity, data = redwine, binwidth = 0.05) +
+  scale_x_continuous(breaks = seq(0,1.5,0.5)) + 
+  ggtitle('distribution of volatile.acidity') +
+  xlab('volatile.acidity (g/dm^3)')
+
+p2 <- qplot(x = volatile.acidity, data = redwine, binwidth = 0.05) +
+  facet_wrap(~ quality) +
+  scale_x_continuous(breaks = seq(0,1.5,0.5)) +
+  ggtitle('volatile.acidity faceted by quality') +
+  xlab('volatile.acidity (g/dm^3)')
+
+grid.arrange(p1, p2, nrow = 1)
+
+```
+
+### Volatile Acidit Ratio
+Because the volatile acidity is evidently corresponded to the quality of wine, I want to explore more. 
+When I search on the Internet, I found the balance of the taste is an important factor judging the quality of wine. So I was wondering the balance between acid smell and acid taste may influence the quality, so I create a new factor of volatile acidity ratio to measure the acid balance and plot the factor.
+But disappointedly, the new facotr didn't work out. The distribution of volatile acidity is similiar to volatile acidity, even worse.
+The reason may be that volatile acidity is an unpleasent factor but the fixed acidity isn't. People refresh the wine before drink at which the volatile acidity evaporates, so the balance between acid smell and acid taste cannot be moduled just by these two factor.
+
+```{r volatile.acidity.ratio}
+# --- add some new factor which may be useful --- #
+# --- the main idea is the inblance of flavor may may destroy the taste of redwine --- # 
+redwine$total.acidity <- redwine$fixed.acidity + redwine$citric.acid
+redwine$volatile.acidity.ratio <- redwine$volatile.acidity / 
+  redwine$total.acidity
+
+p1 <- qplot(x = volatile.acidity.ratio, data = redwine, binwidth = 0.005) +
+  scale_x_continuous(breaks = seq(0,0.2,0.1)) +
+  ggtitle('distribution of volatile.acidity.ratio') 
+  
+p2 <- qplot(x = volatile.acidity.ratio, data = redwine, binwidth = 0.005) +
+  facet_wrap(~ quality) +
+  scale_x_continuous(breaks = seq(0,0.2,0.1)) +
+  ggtitle('volatile.acidity.ratio faceted by quality')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Citric Acid
+Citric acid is found in small quantities, citric acid can add 'freshness' and flavor to wines.
+It seems like more high quality wine has more citric acid. 
+
+```{r citric.acid}
+p1 <- qplot(x = citric.acid, data = redwine, binwidth = 0.05) +
+  scale_x_continuous(breaks = seq(0,0.9,0.3)) +
+  ggtitle('distribution of citric acid') +
+  xlab('citric.acid (g/dm^3)')
+
+p2 <- qplot(x = citric.acid, data = redwine, binwidth = 0.05) +
+  facet_wrap(~ quality) +
+  scale_x_continuous(breaks = seq(0,0.9,0.3)) +
+  ggtitle('citric acid faceted by quality') +
+  xlab('citric.acid (g/dm^3)')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Residual Sugar
+Residual sugar is the amount of sugar remaining after fermentation stops, it's rare to find wines with less than 1 gram/liter and wines with greater than 45 grams/liter are considered sweet.
+The distribution shows that most of the wine in the data set is dry or semi-dry, and a very small amount of the sample are semi-sweet.
+
+```{r residual.sugar}
+p1 <- qplot(x = residual.sugar, data = redwine, binwidth = 0.25) +
+  ggtitle('distribution of residual.sugar') +
+  xlab('residual.sugar (g/L)')
+
+p2 <- qplot(x = residual.sugar, data = redwine, binwidth = 0.25) +
+  facet_wrap(~ quality) +
+  ggtitle('residual.sugar faceted by quality') +
+  xlab('residual.sugar (g/L)')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Chlorides
+Chlorides is the amount of salt in the wine, it contains Chlorine. 
+The distribution of chlorides didn't show much difference in the facet. And I did an log-transform but it didn't work either. 
+The Chlorides itself is odorless, but under microbial action, it will transfer to Trichloroanisole(TCA). If the TCA is too much, the wine will have unpleasant smell like moldy old newspaper and wet cardboard. So I want to explore more about this factor next.
+
+```{r chlorides}
+p1 <- qplot(x = chlorides, data = redwine, binwidth = 0.01) +
+  ggtitle('distribution of chlorides') +
+  xlab('chlorides (g/dm^3)')
+
+p2 <- qplot(x = chlorides, data = redwine, binwidth = 0.01) +
+  facet_wrap(~ quality) +
+  ggtitle('chlorides faceted by quality') +
+  xlab('chlorides (g/dm^3)')
+
+p3 <- qplot(x = log(chlorides), data = redwine, binwidth = 0.1) +
+  ggtitle('distribution of log(chlorides)')
+
+p4 <- qplot(x = log(chlorides), data = redwine, binwidth = 0.1) +
+  facet_wrap(~ quality) +
+  ggtitle('log(chlorides) faceted by quality')
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+
+### Free Sulfur Dioxide
+Free sulfur dioxide is the free form of SO2 exists in equilibrium between molecular SO2 (as a dissolved gas) and bisulfite ion; it prevents microbial growth and the oxidation of wine.
+In low concentrations, SO2 is mostly undetectable in wine, but at free SO2 concentrations over 50 ppm, SO2 becomes evident in the nose and taste of wineToo much SO2 will make the wine smell like rotten eggs.
+The distribution didn't show its direct impact on the quality, so I want to explore it combining other factors next.
+
+```{r free.sulfur.dioxide}
+p1 <- qplot(x = free.sulfur.dioxide, data = redwine, binwidth = 0.001)  +
+  scale_x_continuous(breaks = seq(0,0.06,0.03)) +
+  ggtitle('distribution of free.sulfur.dioxide')
+
+p2 <- qplot(x = free.sulfur.dioxide, data = redwine, binwidth = 0.001) +
+  facet_wrap(~ quality) +
+  ggtitle('free.sulfur.dioxide faceted by quality') +
+  scale_x_continuous(breaks = seq(0,0.06,0.03))
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Total Sulfur Dioxide
+Total sulfur dioxide is amount of free and bound forms of S02.
+Most of the wine in the data set have total sulfur dioxide less than 0.1g/dm^3.
+
+```{r total.sulfur.dioxide}
+p1<- qplot(x = total.sulfur.dioxide, data = redwine, binwidth = 0.005) +
+  scale_x_continuous(breaks = seq(0,0.2,0.1)) +
+  ggtitle('distribution of total.sufur.dioxide') +
+  xlab('total.sulfur.dioxide (g/dm^3)')
+
+p2 <- qplot(x = total.sulfur.dioxide, data = redwine, binwidth = 0.005) +
+  facet_wrap(~ quality) +
+  scale_x_continuous(breaks = seq(0,0.2,0.1)) +
+  ggtitle('total.sulfur.dioxide faceted by quality') +
+  xlab('total.sulfur.dioxide (g/dm^3)')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Density
+The density of wine is close to that of water depending on the percent alcohol and sugar content.
+Density itself didn't show strong correlation to quality, but people always say good wine have a 'mellow' taste, I will explore it combining the alcohol degree next.
+
+```{r density}
+p1 <- qplot(x = density, data = redwine, binwidth = 0.5) +
+  xlab('density (g/dm^3)') +
+  ggtitle('distribution of density')
+
+p2 <- qplot(x = density, data = redwine, binwidth = 0.5) +
+  facet_wrap(~ quality) +
+  xlab('density (g/dm^3)') +
+  ggtitle('density faceted by quality')
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### pH
+PH describes how acidic or basic a wine is on a scale from 0 (very acidic) to 14 (very basic); most wines are between 3-4 on the pH scale.
+It is relevent to acidity, and itself didn't show strong correlation to quality. So I tend to give this factor up, and explore the acidity instead.
+
+```{r pH}
+p1 <- qplot(x = pH, data = redwine, binwidth = 0.05) +
+  ggtitle('distribution of pH')
+
+p2 <- qplot(x = pH, data = redwine, binwidth = 0.05) +
+  facet_wrap(~ quality) +
+  ggtitle('pH faceted by quality')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Sulphates
+Sulphates is a wine additive which can contribute to sulfur dioxide gas (S02) levels, wich acts as an antimicrobial and antioxidant.
+The distribution doesn't show much difference between different quality of wine. Because of its relevence to the SO2 level and antimicro, it is worth exploring.
+
+```{r sulphates}
+p1 <- qplot(x = sulphates, data = redwine, binwidth = 0.01) +
+  xlab('sulphates (g/dm^3)') +
+  ggtitle('distribution of sulphates')
+
+p2 <- qplot(x = sulphates, data = redwine, binwidth = 0.01) +
+  facet_wrap(~ quality) +
+  xlab('sulphates (g/dm^3)') +
+  ggtitle('sulphates faceted by quality')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+### Alcohol
+Alcohol is the percent alcohol content of the wine. It affects not only density but also growing of microbe.
+It can be seen that good quality wine seems tend to be high alcohol content.
+
+```{r}
+p1 <- qplot(x = alcohol, data = redwine, binwidth = 0.1) +
+  xlab('alcohol (%)') +
+  ggtitle('distribution of alcohol')
+
+p2 <- qplot(x = alcohol, data = redwine, binwidth = 0.1) +
+  facet_wrap(~ quality) +
+  xlab('alcohol (%)') +
+  ggtitle('alcohol faceted by quality')
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+
+# 单变量分析
+
+### Summary the data set
+
+```{r}
+summary(redwine)
+dim(redwine)
+```
+### 你的数据集结构是什么？
+- redwine数据集由一维因子变量（红酒序号）、红酒的11种特性以及红酒的质量评分组成，一共13维，且有1599条数据。
+
+### 你的数据集内感兴趣的主要特性有哪些？
+- The main factor I interested in is volatile acidity which has direct impact on quality.
+
+### 你认为数据集内哪些其他特征可以帮助你探索兴趣特点？
+I want to explore the data from following aspect:
+- Influence of SO2 : using free.sulfur.dioxide, total.sulfur.dioxide and sulphate.
+- Relationship between acid and sugar : using fixed.acidity, citric.acid and residual.sugar.
+- Relationship between chlorides and antimicrobial environment : using chlorides, residual.sugar, alcohol and sulphates(the last 3 factors are relevent to micro growing).
+
+### 根据数据集内已有变量，你是否创建了任何新变量？
+- total.acidity <- fixed.acidity + volatile.acidity
+- volatile.acidity.ratio <- volatile.acidity / total.acidity
+But the new factor is not good for distinguish the quality of wine, so I won't focus on that.
+
+### 在已经探究的特性中，是否存在任何异常分布？你是否对数据进行一些操作，如清洁、调整或改变数据的形式？如果是，你为什么会这样做？
+- Didn't found abnormal distribution.
+- I have transfer the unit of free.sulfer.dioxide and total.sulfer.dioxide from mg/dm^3 to g/dm^3. And change the unit of density from g/cm^3 to g/dm^3 to match other factors.
+
+---
+
+# 双变量绘图选择
+
+### Using the ggpair to explore the relationship between 2 factors.
+
+```{r echo=FALSE, fig.height=20, fig.width=20, message=FALSE, warning=FALSE}
+ggpairs(redwine,
+        lower = list(continuous = wrap("points", shape = I('.'))),
+        upper = list(combo = wrap("box", outlier.shape = I('.'))))
+```
+
+### Try to find the strong single factor affect the quality of wine.
+I try to find the relationship between quality and single factor. Actually it is little bit difficult because most of the factors are not strongly correlate to the quality. Here I display top3 factors that I think is most useful and rational.
+
+```{r}
+redwine$quality <- factor(redwine$quality)
+```
+
+### 1. Volatile acidity 
+We can see volatile acidity is negative to quality. But the best wine doesn't have lowest volatile acidity. I guess there are 2 reasons:
+- The dataset of best quality wine are so small that causes the deviation.
+- The volatile acidity is not the only reason to judge the wine, so if the wine is excellent at other aspect but has acceptable high level volatile acidity, it still can be consider as high quality.
+
+```{r}
+ggplot(aes(x = quality, y = volatile.acidity), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('Boxplot of volatile.acidity and quality') +
+  ylab('volatile.acidity (g/dm^3)')
+```
+
+### 2. Citric acid
+High quality wine has higher level of citric acid. Citric acid can add freshness and flavor in wine, which make the taste become rich.
+
+```{r}
+ggplot(aes(x = quality, y = citric.acid), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('Boxplot of citric.acid and quality') +
+  ylab('citric.acid (g/dm^3)') 
+```
+
+### 3. Alcohol
+High quality wine has higher level of alcohol. This may have following reasons:
+1. High level of alcohol can protect the wine from microoraganism.
+2. Wine which has high level of alcohol is more possible to be a good old wine.
+
+```{r}
+ggplot(aes(x = quality, y = alcohol), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue')+
+  ggtitle('Boxplot of alcohol and quality') +
+  ylab('alcohol (%)')
+```
+
+# 双变量分析
+
+### 探讨你在这部分探究中观察到的一些关系。这些感兴趣的特性与数据集内其他特性有什么区别？
+- Volatile acidity is negative to quality.
+- Citric acid is positive to quality.
+- Alcohol is positive to quality.
+These factors that I intereted in has stronger relevence to quality than others.
+
+### 你是否观察到主要特性与其他特性之间的有趣关系？
+- Acid is relevent to pH.
+- Alcohol is relevent to density.
+- Density is relevent to acid.
+- Free.sulfur.dioxide is relevent to total.sulfur.dioxide.
+### 你发现最强的关系是什么？
+- The linear relationship between pH and fixed.acidity.
+
+```{r}
+ggplot(aes(x = fixed.acidity, y = pH), data = redwine) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method='lm', color = 'blue') +
+  ggtitle('Relationship between fixed.acidity and pH') +
+  xlab('fixed.acidity (g/dm^3)')
+```
+
+# 多变量绘图选择
+I explore the data from the following 4 aspect:
+- Influence of SO2 : using free.sulfur.dioxide, total.sulfur.dioxide and sulphate.
+- Relationship between acid and sugar : using fixed.acidity, citric.acid and residual.sugar.
+- Relationship between chlorides and antimicrobial environment : using chlorides, residual.sugar, alcohol and sulphates(the last 3 factors are relevent to micro growing).
+- Other organic matter: Using density and alcohol to explore the other organic matter in the wine.
+
+### 1.Influence of SO2
+We know that too much SO2 smell like rotten eggs, but too less SO2 will cause micro-polution. So in some degree, SO2 is indispensable. But what the difference between good and bad quality wine in this aspect? To explore this issue, I create 2 new factors:
+
+- SO2 ratio
+`so2.ratio = free.sulfur.dioxide / Total Volatile Organic Compound = free.sulfur.dioxide / (free.sulfur.dioxide + volatile.acidity)`
+SO2 ratio can measure the obvious degree of SO2.
+
+- SO2 control
+The sulphates control the so3+ in the wine, which can transform to so2.
+This factor can be consider as the release amount of SO2 when freshing the wine before taste.
+`so2.control = (total.sulfur.dioxide - free.sulfur.dioxide) / sulphates`
+
+```{r}
+# --- create some new factors --- #
+redwine$tvoc <- redwine$volatile.acidity + redwine$free.sulfur.dioxide #Total Volatile Organic Compound
+redwine$so2.ratio <- redwine$free.sulfur.dioxide / redwine$tvoc
+redwine$dissolved.sulfur.dioxide <- redwine$total.sulfur.dioxide - 
+  redwine$free.sulfur.dioxide
+redwine$so2.control <- redwine$dissolved.sulfur.dioxide / redwine$sulphates
+
+# --- plot --- #
+ggplot(aes(x = so2.control, y = so2.ratio, color = quality), data = redwine) +
+  geom_point(alpha = 0.5) +
+  scale_color_brewer(type="seq", palette= 'PuOr' ) + 
+  geom_smooth(method = "lm", se = FALSE,size=1) + 
+  ggtitle('Relationship among so2.raio, so2.control and quality') +
+  xlim(0,0.3)
+```
+
+The plot shows us good wine have higher SO2 ratio and the slope of SO2 ratio and SO2 control is much large. The slope means the release rate SO2 when refreshing. From the plot, we can tell:
+- Good wine has higher SO2 ratio which can protect the wine from micro-polution better.
+- Good wine has higher SO2 releasing rate, which can much quickly make SO2 reach to a high level and also, easily to escape when refreshing.
+In a word, much SO2 *before refreshing* maybe good, because it shows the anti-micro procedure is reliable. But *after refreshing*, too much SO2 can cause unpleasant feeling, thus this kind of wine tend to have lower grades.
+
+### 2.Relationship between acid and sugar
+The ratio between acid and sugar may affect the quality. So I created a new factor and plot it.
+`acid.sugar.ratio = total.acidity / residual sugar`
+
+```{r}
+redwine$acid.sugar.ratio <- redwine$total.acidity / redwine$residual.sugar
+ggplot(aes(x = quality, y = acid.sugar.ratio), 
+       data = redwine) +
+  geom_boxplot() +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red")+
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  geom_jitter(alpha = 0.5) +
+  ggtitle('Boxplot of acid.sugar.ratio and quality')
+```
+
+But disappointedly, it doesn't work as I expect. 
+It comes to my mind that red wine are divided by the residual sugar, so I bucket the data and boxplot acidity and quality.
+
+```{r}
+redwine$sugar.bucket <- cut(redwine$residual.sugar,
+                                        c(0,4,12,16))
+ggplot(aes(x = quality, y = total.acidity), 
+       data = redwine) +
+  geom_boxplot() +
+  scale_y_continuous(limits = c(4,14))+
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_jitter(alpha = 0.25)+
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('The boxplot of total acidity and quality facet by sugar.bucket') +
+  facet_wrap(~sugar.bucket, nrow = 2) +
+  ylab('total.acidity (g/dm^3)')
+```
+
+- Dry: Dry wine's residual sugar is under 4g/L. The sweetness is faint so the acidity didn't affect the taste this much. But still, high level of acidity make the flavor rich and strong.
+- Semi-Dry: Semi-dry wine's residual sugar is between 4-12g/L in which the acidity is very important. This plot strongley prove the saying: "Acidity is the skeleton of wine." The wine has higher acidity tend to be better.
+- Semi-Sweet: Too less data to lead a result.
+
+### 3. Relationship between chlorides and antimicrobial environment
+The Chlorides itself is odorless, but under microbial action, it will transfer to Trichloroanisole(TCA). If the TCA is too much, the wine will have unpleasant smell like moldy old newspaper and wet cardboard. 
+Here I create a factor that can measure the micro-growing environment. Sugar is consider to be positive to micro-growing, meanwhile alcohol and sulphates are negtive to micro-growing. The fomula is as following:
+`micro.growing = residual.sugar / (alcohol * sulphates)`
+Next I create the factor TCA.potential which is the product of micro.growing and chlorides.
+`TCA.potential = micro.growing * chlorides`
+Then I make a plot to figure out the relationship between TCA.potential and quality.
+*Here I get a boxplot which shows TCA.potential is negtive to quality.*
+
+```{r}
+redwine$micro.growing <- redwine$residual.sugar / 
+  (redwine$alcohol * redwine$sulphates)
+redwine$TCA.potential <- redwine$micro.growing * redwine$chlorides
+
+ggplot(aes(x = quality, y = TCA.potential), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('The boxplot of TCA.potential and quality') +
+  scale_y_continuous(limits = c(0,0.1))
+```
+
+### 4. Other organic matter: Using density and alcohol to explore the other organic matter in the wine.
+We know the density of red wine is less than water because of it contains alcohol and other organic matter. So I want to find the relationship between these organic matter and quality.
+First, I created a new factor names other.matter.density to measure the weight of wine removed alcohol and water.
+`other.matter.density = density - 1000 * (alcohol/100*0.79 - (1 - alcohol/100*1))`
+The unit is g/dm^3.
+
+The plot shows that the other.matter is negative to quality. The reason may be that the density of most great organic matter in wine(like acidity, tannin, etc.) has lower density than water, if these organic matter are higher, the wine is tend to have mellow taste.
+
+```{r echo=FALSE}
+redwine$other.matter = redwine$density - 
+  (redwine$alcohol/100*790) -
+  (1 - redwine$alcohol/100)*1000
+
+ggplot(aes(x = density, y = other.matter, color = quality), 
+       data = redwine) + 
+  geom_point(alpha = 0.5) +
+  scale_color_brewer(type="seq", palette= 'PuOr' ) + 
+  geom_smooth(method = "lm", se = FALSE,size=1) +
+  xlab('density (g/dm^3)') +
+  ylab('other.matter (g/dm^3)')
+```
+
+```{r}
+ggplot(aes(x = quality, y = other.matter), data = redwine) + 
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('The boxplot of other.matte and quality') +
+  ylab('other.matter (g/dm^3)')
+
+```
+
+# 多变量分析
+
+###  探讨你在这部分探究中观察到的一些关系。通过观察感兴趣的特性，是否存在相互促进的特性？
+free.sulfur.dioxide and total.sulfur.dioxide promote each other.
+
+```{r}
+ggplot(aes(x = free.sulfur.dioxide, y = total.sulfur.dioxide), 
+       data = redwine) +
+  geom_jitter() +
+  xlab('free.sulfur.dioxide (g/dm^3)') +
+  ylab('total.sulfur.dioxide (g/dm^3)') +
+  ggtitle('Relationship between free.sulfur.dioxide and total.sulfur.dioxide')
+```
+
+### 这些特性之间是否存在有趣或惊人的联系呢？
+The factors which promote or inhibit the quality of wine have been explained in detail in the above.
+
+### 选项：你是否创建过数据集的任何模型？讨论你模型的优缺点。
+
+------
+
+# 定稿图
+
+### 1. Volatile acidity 
+We can see volatile acidity is negative to quality. But the best wine doesn't have lowest volatile acidity. I guess there are 2 reasons:
+- The dataset of best quality wine are so small that causes the deviation.
+- The volatile acidity is not the only reason to judge the wine, so if the wine is excellent at other aspect but has acceptable high level volatile acidity, it still can be consider as high quality.
+
+```{r}
+ggplot(aes(x = quality, y = volatile.acidity), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('Boxplot of volatile.acidity and quality') +
+  ylab('volatile.acidity (g/dm^3)')
+```
+
+### 2. Citric acid
+High quality wine has higher level of citric acid. Citric acid can add freshness and flavor in wine, which make the taste become rich.
+
+```{r}
+ggplot(aes(x = quality, y = citric.acid), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('Boxplot of citric.acid and quality') +
+  ylab('citric.acid (g/dm^3)') 
+```
+
+### 3. Alcohol
+High quality wine has higher level of alcohol. This may have following reasons:
+1. High level of alcohol can protect the wine from microoraganism.
+2. Wine which has high level of alcohol is more possible to be a good old wine.
+
+```{r}
+ggplot(aes(x = quality, y = alcohol), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue')+
+  ggtitle('Boxplot of alcohol and quality') +
+  ylab('alcohol (%)')
+```
+
+### 4.Influence of SO2
+We know that too much SO2 smell like rotten eggs, but too less SO2 will cause micro-polution. So in some degree, SO2 is indispensable. But what the difference between good and bad quality wine in this aspect? To explore this issue, I create 2 new factors:
+
+- SO2 ratio
+`so2.ratio = free.sulfur.dioxide / Total Volatile Organic Compound = free.sulfur.dioxide / (free.sulfur.dioxide + volatile.acidity)`
+SO2 ratio can measure the obvious degree of SO2.
+
+- SO2 control
+The sulphates control the so3+ in the wine, which can transform to so2.
+This factor can be consider as the release amount of SO2 when freshing the wine before taste.
+`so2.control = (total.sulfur.dioxide - free.sulfur.dioxide) / sulphates`
+
+```{r}
+# --- create some new factors --- #
+redwine$tvoc <- redwine$volatile.acidity + redwine$free.sulfur.dioxide #Total Volatile Organic Compound
+redwine$so2.ratio <- redwine$free.sulfur.dioxide / redwine$tvoc
+redwine$dissolved.sulfur.dioxide <- redwine$total.sulfur.dioxide - 
+  redwine$free.sulfur.dioxide
+redwine$so2.control <- redwine$dissolved.sulfur.dioxide / redwine$sulphates
+
+# --- plot --- #
+ggplot(aes(x = so2.control, y = so2.ratio, color = quality), data = redwine) +
+  geom_point(alpha = 0.5) +
+  scale_color_brewer(type="seq", palette= 'PuOr' ) + 
+  geom_smooth(method = "lm", se = FALSE,size=1) + 
+  ggtitle('Relationship among so2.raio, so2.control and quality') +
+  xlim(0,0.3)
+```
+
+The plot shows us good wine have higher SO2 ratio and the slope of SO2 ratio and SO2 control is much large. The slope means the release rate SO2 when refreshing. From the plot, we can tell:
+- Good wine has higher SO2 ratio which can protect the wine from micro-polution better.
+- Good wine has higher SO2 releasing rate, which can much quickly make SO2 reach to a high level and also, easily to escape when refreshing.
+In a word, much SO2 *before refreshing* maybe good, because it shows the anti-micro procedure is reliable. But *after refreshing*, too much SO2 can cause unpleasant feeling, thus this kind of wine tend to have lower grades.
+
+### 5.Relationship between acid and sugar
+The ratio between acid and sugar may affect the quality. So I created a new factor and plot it.
+`acid.sugar.ratio = total.acidity / residual sugar`
+
+```{r}
+redwine$acid.sugar.ratio <- redwine$total.acidity / redwine$residual.sugar
+ggplot(aes(x = quality, y = acid.sugar.ratio), 
+       data = redwine) +
+  geom_boxplot() +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red")+
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  geom_jitter(alpha = 0.5) +
+  ggtitle('Boxplot of acid.sugar.ratio and quality')
+```
+
+But disappointedly, it doesn't work as I expect. 
+It comes to my mind that red wine are divided by the residual sugar, so I bucket the data and boxplot acidity and quality.
+
+```{r}
+redwine$sugar.bucket <- cut(redwine$residual.sugar,
+                                        c(0,4,12,16))
+ggplot(aes(x = quality, y = total.acidity), 
+       data = redwine) +
+  geom_boxplot() +
+  scale_y_continuous(limits = c(4,14))+
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_jitter(alpha = 0.25)+
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('The boxplot of total acidity and quality facet by sugar.bucket') +
+  facet_wrap(~sugar.bucket, nrow = 2) +
+  ylab('total.acidity (g/dm^3)')
+```
+
+- Dry: Dry wine's residual sugar is under 4g/L. The sweetness is faint so the acidity didn't affect the taste this much. But still, high level of acidity make the flavor rich and strong.
+- Semi-Dry: Semi-dry wine's residual sugar is between 4-12g/L in which the acidity is very important. This plot strongley prove the saying: "Acidity is the skeleton of wine." The wine has higher acidity tend to be better.
+- Semi-Sweet: Too less data to lead a result.
+
+### 6. Relationship between chlorides and antimicrobial environment
+The Chlorides itself is odorless, but under microbial action, it will transfer to Trichloroanisole(TCA). If the TCA is too much, the wine will have unpleasant smell like moldy old newspaper and wet cardboard. 
+Here I create a factor that can measure the micro-growing environment. Sugar is consider to be positive to micro-growing, meanwhile alcohol and sulphates are negtive to micro-growing. The fomula is as following:
+`micro.growing = residual.sugar / (alcohol * sulphates)`
+Next I create the factor TCA.potential which is the product of micro.growing and chlorides.
+`TCA.potential = micro.growing * chlorides`
+Then I make a plot to figure out the relationship between TCA.potential and quality.
+*Here I get a boxplot which shows TCA.potential is negtive to quality.*
+
+```{r}
+redwine$micro.growing <- redwine$residual.sugar / 
+  (redwine$alcohol * redwine$sulphates)
+redwine$TCA.potential <- redwine$micro.growing * redwine$chlorides
+
+ggplot(aes(x = quality, y = TCA.potential), 
+       data = redwine) +
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.25) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('The boxplot of TCA.potential and quality') +
+  scale_y_continuous(limits = c(0,0.1))
+```
+
+### 7. Other organic matter: Using density and alcohol to explore the other organic matter in the wine.
+We know the density of red wine is less than water because of it contains alcohol and other organic matter. So I want to find the relationship between these organic matter and quality.
+First, I created a new factor names other.matter.density to measure the weight of wine removed alcohol and water.
+`other.matter.density = density - 1000 * (alcohol/100*0.79 - (1 - alcohol/100*1))`
+The unit is g/dm^3.
+
+The plot shows that the other.matter is negative to quality. The reason may be that the density of most great organic matter in wine(like acidity, tannin, etc.) has lower density than water, if these organic matter are higher, the wine is tend to have mellow taste.
+
+```{r echo=FALSE, Plot_Three}
+redwine$other.matter = redwine$density - 
+  (redwine$alcohol/100*790) -
+  (1 - redwine$alcohol/100)*1000
+
+ggplot(aes(x = density, y = other.matter, color = quality), 
+       data = redwine) + 
+  geom_point(alpha = 0.5) +
+  scale_color_brewer(type="seq", palette= 'PuOr' ) + 
+  geom_smooth(method = "lm", se = FALSE,size=1) +
+  xlab('density (g/dm^3)') +
+  ylab('other.matter (g/dm^3)')
+```
+
+```{r}
+ggplot(aes(x = quality, y = other.matter), data = redwine) + 
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun.y = "mean", 
+      geom = "point", 
+      color = "red") +
+  geom_smooth(method='lm', aes(group = 1), color = 'blue') +
+  ggtitle('The boxplot of other.matte and quality') +
+  ylab('other.matter (g/dm^3)')
+
+```
+
+------
+
+# 反思
+
+EDA not only need data processing technology, but also a very deep insight of the dataset. Just by this way can we get some interesting results.
+
+- 为未来工作提供了至少一个提议或问题。
+1. Construct more factors: 
+Actually I am not very satisfied with the factor -- 'other matter', we can construct this variable further. Maybe minus the residual sugar or the chlorides. And after know more about the red wine, we can find more factors that might be useful.
+
+2. Reconstruct the factors:
+Because some factors are highly correlated which is bad for modelling. So we can use PCA or some other method to refine the factors.
+
+3. Modelling: 
+In my opnion, the quality of wine doesn't depend on its advantages but its flaws since the balance of taste is the key value judging a wine. So maybe we can use the negative value to construct a model to deal predict a wine's quality. In this way, we can know how the factors influence the quality in a more mathematical way.
+
+
+
+- 解释了分析过程中所做的任何重要决定，以及这些决定对分析产生的影响。
+When I create a new factor, I decided which original factors need to be used.
+And after trying, I get the rational results.
+
+------
+
+# Reference
+
+[R语言对红酒各因素进行探索性分析](https://blog.csdn.net/einstellung/article/details/76228099)
+
+[红葡萄酒质量探索分析](https://www.jianshu.com/p/a425acdaf77e)
+
+[葡萄酒的骨架——酸度](http://www.wine-world.com/culture/pj/20161102091254442)
+
+[入门：干型、半干、半甜和甜型葡萄酒有何区别？](https://www.sohu.com/a/116275922_503809)
+
+[你的葡萄酒Corked了吗？你喝过Corked葡萄酒吗？](http://www.wine-world.com/culture/pj/20150403171729207)
